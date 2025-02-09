@@ -1,4 +1,3 @@
-
 import tkinter as tk
 from tkinter import ttk
 import ttkbootstrap as tb
@@ -7,13 +6,17 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import os
 import subprocess
+import customtkinter
+
+customtkinter.set_appearance_mode("light")
+customtkinter.set_default_color_theme("dark-blue")
 
 class Main_Page(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
     
         self.controller = controller
-        #self.configure(bg="#f5f5f5")
+        self.configure(bg="#f5f5f5")
         
         #cabecalho
         self.rowconfigure(0, weight=1)
@@ -64,7 +67,8 @@ class Main_Page(tk.Frame):
         
         #Criação da Frame do Status
         status_frame = ttk.Frame(parent, borderwidth=2, relief="solid", padding=10)
-
+    
+        
         #Label e Entry de apresentação do Operador
         operador_label = ttk.Label(status_frame, text="Operador:", font=("Inter", 14))
         operador_label.grid(row=0, column=0, sticky="w", pady=5)
@@ -84,31 +88,13 @@ class Main_Page(tk.Frame):
             status_frame,
             text="Drone: Ativo",
             font=("Inter", 14),
-            fg="green",
+            fg="blue",
             cursor="hand2"
         )
-        
-        def status_drone():
-        # Obtém o diretório do script atual
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-        # Constrói o caminho absoluto para o arquivo drone.py
-            file_path = os.path.join(current_dir, "interfaces", "drone.py")
-        
-        # Verifica se o arquivo existe
-            if os.path.isfile(file_path):
-                print(f"Iniciando {file_path}...")  # Depuração
-                try:
-                    # Executa o arquivo drone.py
-                    subprocess.run(["python", file_path], check=True)
-                except subprocess.CalledProcessError as e:
-                    print(f"Erro ao executar o arquivo: {e}")  # Depuração
-            else:
-                print(f"Arquivo não encontrado: {file_path}")  # Depuração
-
-
         drone_status.grid(row=2, column=0, columnspan=2, pady=10)
-        drone_status.bind("<Button-1>", lambda e: status_drone())
-
+        
+        drone_status.bind("<Button-1>", lambda e: self.abrir_drone())
+    
 
         # Adiciona scroll frame e scrollbar no status_frame
         self.scroll_canvas = tk.Canvas(status_frame, height=650)
@@ -130,10 +116,18 @@ class Main_Page(tk.Frame):
             "<Configure>", lambda e: self.scroll_canvas.configure(scrollregion=self.scroll_canvas.bbox("all")) # semmpre que sao adicionados graficos sao mostrados todos
         )
         
-        
         #adiciona os graficos ao frame
         self.add_graphs()
         return status_frame
+    
+    def abrir_drone(self):
+        try:
+            subprocess.run(["python", "interfaces/drone.py"], check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"Erro ao executar {e}")
+        except FileNotFoundError:
+            print("nao encontrado")
+        
     
     def add_graphs(self):
         # Adicionar gráficos ao frame
@@ -144,26 +138,12 @@ class Main_Page(tk.Frame):
 
         
     def criar_grafico(self):
-        fig, ax = plt.subplots(figsize=(4, 3))  # Define o tamanho do gráfico
-        ax.plot([0, 1, 2, 3, 4], [0, 1, 4, 9, 16])  # Plotando um gráfico simples
+        fig, ax = plt.subplots(figsize=(4, 3))  # tamanho do gráfico
+        ax.plot([0, 1, 2, 3, 4], [0, 1, 4, 9, 16])  
         ax.set_title("Exemplo de Gráfico")
         return fig
     
-    def open_popup(self):
-        # Mostra o popup
-        from popup_op import Popup
-        popup = Popup(self.controller)
-        popup.grab_set()
-        
-    def set_user_name(self, nome):
-        """Atualiza a Entry com o nome do operador"""
-        self.operador_entry.config(state="normal")  # Permite editar a Entry
-        self.operador_entry.delete(0, tk.END)  # Limpa a Entry
-        self.operador_entry.insert(0, nome)  # Insere o nome na Entry
-        self.operador_entry.config(state="readonly")  # Torna a Entry somente leitura novamen
-
-    
-    
+   
     
     
     

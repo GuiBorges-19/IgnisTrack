@@ -1,7 +1,8 @@
-"""import tkinter as tk
+import tkinter as tk
+from tkinter import simpledialog
 
 class Popup(tk.Toplevel):
-    def __init__(self, parent):
+    def __init__(self, parent,set_user_name_callback):
         super().__init__(parent)
         
         self.title("Entrada do Nome")
@@ -16,10 +17,13 @@ class Popup(tk.Toplevel):
         # Botão para submeter o nome
         self.submit_button = tk.Button(self, text="Submeter", command=self.submit_name)
         self.submit_button.pack(pady=10)
+        
+        self.entry.focus()
+        self.set_user_name_callback = set_user_name_callback
 
     def submit_name(self):
-        Método para pegar o nome da Entry e passá-lo para a Main_Page
+        #Método para pegar o nome da Entry e passá-lo para a Main_Page
         name = self.entry.get()
         if name:  # Verifica se o nome não está vazio
-            self.master.pages["main"].set_user_name(name)  # Passa o nome para a Main_Page
-            self.destroy()  # Fecha o pop-up"""
+            self.set_user_name_callback(name) # Passa o nome para a Main_Page
+            self.destroy()  # Fecha o pop-up
