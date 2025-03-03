@@ -1,149 +1,118 @@
 import tkinter as tk
 from tkinter import ttk
-import ttkbootstrap as tb
-from ttkbootstrap.scrolled import ScrolledFrame
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import os
-import subprocess
+from tkintermapview import TkinterMapView
 import customtkinter
+from server_tcp import Server
+import queue
+from status_frame import create_status_panel, create_drone_status, grafico_temp, grafico_vento, add_graphs
 
-customtkinter.set_appearance_mode("light")
-customtkinter.set_default_color_theme("dark-blue")
 
 class Main_Page(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
-    
         self.controller = controller
-        self.configure(bg="#f5f5f5")
+        self.parent = parent
+        self.configure(bg="#D9D9D9")
         
-        #cabecalho
+        # Configuração do layout principal
         self.rowconfigure(0, weight=1)
+        self.columnconfigure(0, weight=2)
+        self.columnconfigure(1, weight=1)
         
-        #Configuracao layout princcipal
-        self.rowconfigure(0, weight=1)
-        self.columnconfigure(0, weight=1)
-
+        self.drone_labels = {}
+        
         self.create_body()
+        
+        self.drone_marker = None
+        self.coord_queue = queue.Queue()
+        self.controller.after(100,self.check_queue)
+        
+        self.server = Server(callback=self.update_location)
 
     def create_body(self):
-        #Cria o corpo da página principal.
+        # Cria o corpo da página principal
         self.body_frame = ttk.Frame(self)
-        self.body_frame.grid(row = 0, column=0, sticky="nseww", padx=10,pady=10)
+        self.body_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         
-        self.body_frame.columnconfigure(0, weight=2) #coluna do mapa
-        self.body_frame.columnconfigure(1, weight=1) #coluna do painel de status
-        self.body_frame.rowconfigure(0, weight=1)    
+        self.body_frame.columnconfigure(0, weight=2)  # Coluna do mapa
+        self.body_frame.columnconfigure(1, weight=1)  # Coluna do painel de status
+        self.body_frame.rowconfigure(0, weight=1)
+        
+        # frame mapa_frame
+        self.map_frame = self.create_map_frame(self.body_frame)
+        self.map_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        
+        self.status_frame,self.temp_frame, self.vento_frame = create_status_panel(self.body_frame)
+        
+        # frame de status_frame
+        self.status_frame.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+        
+        # frame image_frame
+        image_frame = tk.Frame(self.status_frame)
+        image_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
 
-         #Cria o framme de apresentação do mapa
-        map_frame = self.create_map_frame(self.body_frame)
-        map_frame.grid(row=0, column=0, sticky="nsew", padx=10,pady=10) 
+        # frame drone_frame
+        self.drone_frame, self.drone_labels = create_drone_status(self.body_frame)
         
-        status_frame = self.create_status_panel(self.body_frame)
-        status_frame.grid(row = 0, column=1, sticky="nseww", padx=10,pady=10)
-        
-        
+        # botão "Drone: Ativo" para alternar entre os frames
+        for widget in self.status_frame.winfo_children():
+            if isinstance(widget, tk.Label) and "Drone: Ativo" in widget.cget("text"):
+                widget.bind("<Button-1>", lambda e: self.show_frame(self.drone_frame))
 
-    # Função que apresenta o mapa no mape_frame
+        # botão "Voltar" para alternar entre os frames
+        button_2 = self.drone_frame.winfo_children()[-1]
+        button_2.configure(command=lambda: self.show_frame(self.status_frame))
+
+        # mostra o frame inicial - frame 1
+        self.show_frame(self.status_frame)
+
     def create_map_frame(self, parent):
-        """Cria a área do mapa interativo."""
-        map_frame = ttk.Frame(parent, borderwidth=2, relief="solid")
-        map_label = tk.Label(
-            map_frame,
-            text="Mapa Interativo (Placeholder)",
-            font=("Arial", 14),
-            bg="#e0e0e0",
-            fg="#333",
-            width=50,
-            height=20,
-        )
-        map_label.pack(fill="both", expand=True, padx=10, pady=10)
+        #Cria a área do mapa interativo
+        map_frame = TkinterMapView(parent, borderwidth=2, corner_radius=0, width=600, height= 500,relief="solid")
+        map_frame.set_tile_server("https://mt0.google.com/vt/lyrs=m&h11=en&x={x}&y={y}&z={z}&s=Ga", max_zoom=22)
+        
         return map_frame
     
-    #Função que apresenta toda a informação do status_frame
-    def create_status_panel(self, parent):
-        """Cria o painel de status do sistema."""
-        
-        #Criação da Frame do Status
-        status_frame = ttk.Frame(parent, borderwidth=2, relief="solid", padding=10)
+    def show_frame(self, frame):
+        self.status_frame.grid_remove()  # Esconde o painel de status
+        self.drone_frame.grid_remove()   # Esconde o painel do drone
+        frame.grid(row=0, column=1, sticky="nsew")  # Exibe o novo frame
     
+    def update_location(self, lat, log ,alt,dados_clima):
         
-        #Label e Entry de apresentação do Operador
-        operador_label = ttk.Label(status_frame, text="Operador:", font=("Inter", 14))
-        operador_label.grid(row=0, column=0, sticky="w", pady=5)
-        self.operador_entry = ttk.Entry(status_frame)
-        self.operador_entry.grid(row=0, column=1, sticky="ew", pady=5)
-  
-        #Label e Entry de apresentação da área configurada
-        area_label = ttk.Label(status_frame, text="Área:", font=("Inter", 14))
-        area_label.grid(row=1, column=0, sticky="w", pady=5)
-        area_entry = ttk.Entry(status_frame)
-        area_entry.grid(row=1, column=1, sticky="ew", pady=5)
+        print(f"DEBUG - Tipo de dados_clima: {type(dados_clima)}, Valor: {dados_clima}")  # <-- Adicione isto
         
-        #Configura o layout do frame de status
-        status_frame.columnconfigure(1, weight=1)
+        if not hasattr(self, 'map_frame'):
+            return
         
-        drone_status = tk.Label(
-            status_frame,
-            text="Drone: Ativo",
-            font=("Inter", 14),
-            fg="blue",
-            cursor="hand2"
-        )
-        drone_status.grid(row=2, column=0, columnspan=2, pady=10)
+        if not isinstance(dados_clima,dict):
+            print("Erro: Esperado dicionario", type(dados_clima))
+            return
         
-        drone_status.bind("<Button-1>", lambda e: self.abrir_drone())
-    
-
-        # Adiciona scroll frame e scrollbar no status_frame
-        self.scroll_canvas = tk.Canvas(status_frame, height=650)
-        self.scroll_canvas.grid(row=3 ,column=0, sticky="nsew",columnspan=2, pady=10)
+        if self.drone_marker:
+            self.drone_marker.delete()
         
-        #Criação do scrollbar vertical
-        self.scrollbar = ttk.Scrollbar(status_frame, orient=tk.VERTICAL, command=self.scroll_canvas.yview)
-        self.scrollbar.grid(row=3 ,column=2, sticky="nsew")
+        self.drone_marker = self.map_frame.set_marker(lat,log,alt)
         
-        #Configuração do canvas para usar o scroll
-        self.scroll_canvas.configure(yscrollcommand=self.scrollbar.set)
-        
-        #Frame dos graficos dentro de status_frame
-        self.graph_frame = ttk.Frame(self.scroll_canvas)
-        self.scroll_canvas.create_window((0,0), window=self.graph_frame, anchor="nw")
-        
-        #ajusta a rolagem do scroll
-        self.graph_frame.bind(
-            "<Configure>", lambda e: self.scroll_canvas.configure(scrollregion=self.scroll_canvas.bbox("all")) # semmpre que sao adicionados graficos sao mostrados todos
-        )
-        
-        #adiciona os graficos ao frame
-        self.add_graphs()
-        return status_frame
-    
-    def abrir_drone(self):
+        if dados_clima:
+            add_graphs(dados_clima,self.temp_frame,self.vento_frame)
+            
+    def check_queue(self):
         try:
-            subprocess.run(["python", "interfaces/drone.py"], check=True)
-        except subprocess.CalledProcessError as e:
-            print(f"Erro ao executar {e}")
-        except FileNotFoundError:
-            print("nao encontrado")
-        
-    
-    def add_graphs(self):
-        # Adicionar gráficos ao frame
-        for i in range(5):
-            grafico = self.criar_grafico()
-            grafico_canvas = FigureCanvasTkAgg(grafico, master=self.graph_frame)
-            grafico_canvas.get_tk_widget().pack(pady=10)
+            while True:
+                coordinates = self.coord_queue.get_nowait()
+                
+                lat,log,altitude = map(float, coordinates.split(','))
+                print(f"Coordenadas Processadas: lat={lat}, log = {log}, alt = {altitude}")
+                dados_clima = self.server.get_weather(lat,log)         
+                self.update_location(lat,log,altitude,dados_clima)       
+        except queue.Empty:
+            pass
+        self.controller.after(100,self.check_queue)
 
-        
-    def criar_grafico(self):
-        fig, ax = plt.subplots(figsize=(4, 3))  # tamanho do gráfico
-        ax.plot([0, 1, 2, 3, 4], [0, 1, 4, 9, 16])  
-        ax.set_title("Exemplo de Gráfico")
-        return fig
+
     
-   
-    
-    
-    
+
+
+
+
