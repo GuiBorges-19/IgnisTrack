@@ -4,7 +4,7 @@ from tkintermapview import TkinterMapView
 import customtkinter
 from server_tcp import Server
 import queue
-from status_frame import create_status_panel, create_drone_status, grafico_temp, grafico_vento, add_graphs
+from status_frame import create_status_panel, create_drone_status, add_graphs
 
 
 class Main_Page(tk.Frame):
@@ -28,6 +28,8 @@ class Main_Page(tk.Frame):
         self.controller.after(100,self.check_queue)
         
         self.server = Server(callback=self.update_location)
+        
+        self.last_data = None
 
     def create_body(self):
         # Cria o corpo da página principal
@@ -41,12 +43,11 @@ class Main_Page(tk.Frame):
         # frame mapa_frame
         self.map_frame = self.create_map_frame(self.body_frame)
         self.map_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
-        
-        self.status_frame,self.temp_frame, self.vento_frame = create_status_panel(self.body_frame)
-        
+            
         # frame de status_frame
+        self.status_frame,self.temp_frame, self.vento_frame, self.hum_frame, self.pressao_frame = create_status_panel(self.body_frame)
         self.status_frame.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
-        
+
         # frame image_frame
         image_frame = tk.Frame(self.status_frame)
         image_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
@@ -66,6 +67,24 @@ class Main_Page(tk.Frame):
         # mostra o frame inicial - frame 1
         self.show_frame(self.status_frame)
 
+    #integrar com uma api que transforma a label em si nas coordenadas no mapa (Geocoding API)
+        """#barra search do mapa
+        search_frame = tk.Frame(self.body_frame)
+        search_frame.grid(pady=5)
+        
+        self.search_entry = tk.Entry(search_frame,width=40)
+        self.search_entry.grid(padx=5)
+        
+        self.search_b = tk.Button(search_frame,text="Pesquisar",command=self.search_local)
+        self.search_b.grid(padx=5)"""
+        
+    """def search_local(self):
+        location = self.search_entry.get()
+        if location:
+            self.map_frame.set_address(location, marker=True)
+        else:
+            print("Local não encontrado")"""
+    
     def create_map_frame(self, parent):
         #Cria a área do mapa interativo
         map_frame = TkinterMapView(parent, borderwidth=2, corner_radius=0, width=600, height= 500,relief="solid")
@@ -80,7 +99,7 @@ class Main_Page(tk.Frame):
     
     def update_location(self, lat, log ,alt,dados_clima):
         
-        print(f"DEBUG - Tipo de dados_clima: {type(dados_clima)}, Valor: {dados_clima}")  # <-- Adicione isto
+        print(f"DEBUG - Tipo de dados_clima: {type(dados_clima)}, Valor: {dados_clima}")  
         
         if not hasattr(self, 'map_frame'):
             return
@@ -89,23 +108,28 @@ class Main_Page(tk.Frame):
             print("Erro: Esperado dicionario", type(dados_clima))
             return
         
-        if self.drone_marker:
-            self.drone_marker.delete()
+        if dados_clima:
+            self.update_graph(dados_clima)
         
         self.drone_marker = self.map_frame.set_marker(lat,log,alt)
         
-        if dados_clima:
-            add_graphs(dados_clima,self.temp_frame,self.vento_frame)
-            
+        if self.drone_marker:
+            self.drone_marker.delete()
+        
+    def update_graph(self, dados_clima):
+        add_graphs(dados_clima,self.temp_frame,self.vento_frame,self.hum_frame,self.pressao_frame)
+
+    
     def check_queue(self):
+        ##Função que verifica as coordenadas e atualiza a posiçao do drone
         try:
             while True:
                 coordinates = self.coord_queue.get_nowait()
                 
                 lat,log,altitude = map(float, coordinates.split(','))
                 print(f"Coordenadas Processadas: lat={lat}, log = {log}, alt = {altitude}")
-                dados_clima = self.server.get_weather(lat,log)         
-                self.update_location(lat,log,altitude,dados_clima)       
+                dados_clima = self.server.get_weather(lat,log)##procura o tempo conforme as coordenadas      
+                self.update_location(lat,log,altitude,dados_clima)     #atualiza o update_location com a nova posiçao 
         except queue.Empty:
             pass
         self.controller.after(100,self.check_queue)

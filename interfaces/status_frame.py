@@ -4,7 +4,7 @@ import ttkbootstrap as tb
 from ttkbootstrap.scrolled import ScrolledFrame
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-
+import threading
 
 def create_status_panel(parent):
     
@@ -49,7 +49,15 @@ def create_status_panel(parent):
     vento_frame = ttk.Frame(status_frame)
     vento_frame.grid(row=5, column=0, columnspan=2, sticky="nsew",pady=10)
     
-    return status_frame, temp_frame,vento_frame
+    #Frame do graficos das temperaturas
+    hum_frame = ttk.Frame(status_frame)
+    hum_frame.grid(row=6, column=0, columnspan=2, sticky="nsew",pady=10)
+    
+    #Frame do graficos do vento
+    pressao_frame = ttk.Frame(status_frame)
+    pressao_frame.grid(row=7, column=0, columnspan=2, sticky="nsew",pady=10)
+    
+    return status_frame, temp_frame,vento_frame,hum_frame,pressao_frame
 
 def create_drone_status(parent):
     """Cria o painel de status do drone."""
@@ -92,6 +100,8 @@ def create_drone_status(parent):
 
 hist_temp = []
 hist_vento = []
+hist_humidade =  []
+hist_pressao = []
 
 def grafico_temp():
     if not hist_temp:
@@ -106,6 +116,36 @@ def grafico_temp():
     ax.grid(True)
     
     return fig
+
+def grafico_humidade():
+    if not hist_humidade:
+        return None
+    
+    fig,ax = plt.subplots(figsize=(4,3))
+    
+    ax.plot(hist_humidade,color = "black", marker = "o", linestyle ="-", label ="Humidade")
+    ax.set_xlabel("Tempo")
+    ax.set_ylabel("Humidade")
+    ax.legend()
+    ax.grid(True)
+    
+    return fig
+    
+def grafico_pressao():
+    if not hist_pressao:
+        return None
+    
+    fig,ax = plt.subplots(figsize=(4,3))
+    
+    ax.plot(hist_pressao,color = "green", marker = "o", linestyle ="-", label ="pressao")
+    ax.set_xlabel("Tempo")
+    ax.set_ylabel("Pressao")
+    ax.legend()
+    ax.grid(True)
+    
+    return fig
+    
+
 
 def grafico_vento():
     if not hist_vento:
@@ -124,18 +164,27 @@ def grafico_vento():
 
 
 # Função para adicionar o gráfico dentro do frame no Tkinter
-def add_graphs(dados_clima, temp_frame, vento_frame):
+def add_graphs(dados_clima, temp_frame, vento_frame, hum_frame, pressao_frame):
     
-    global hist_temp,hist_vento #permite mudar a variavel global
+    global hist_temp,hist_vento, hist_humidade, hist_pressao #permite mudar a variavel global
     
     hist_temp.append(dados_clima["temperatura"])
     hist_vento.append(dados_clima["vento"])
+    hist_humidade.append(dados_clima["humidade"])
+    hist_pressao.append(dados_clima["pressao"])
+
     
     if len(hist_temp) > 50:
         hist_temp.pop(0)
         
     if len(hist_vento) > 50:
         hist_vento.pop(0)
+        
+    if len(hist_humidade) > 50:
+        hist_humidade.pop(0)
+        
+    if len(hist_pressao) > 50:
+        hist_pressao.pop(0)
     
     """if not hasattr(add_graphs,"temp_data"):
         add_graphs.temp_data = []
@@ -158,8 +207,17 @@ def add_graphs(dados_clima, temp_frame, vento_frame):
     for widget in vento_frame.winfo_children():
         widget.destroy()
         
+    for widget in hum_frame.winfo_children():
+        widget.destroy()
+    
+    for widget in pressao_frame.winfo_children():
+        widget.destroy()
+        
     temp_graph = grafico_temp()
     vento_graph = grafico_vento()
+    hum_graph = grafico_humidade()
+    pressao_graph = grafico_pressao()
+    
     
     if temp_graph:
         temp_canvas = FigureCanvasTkAgg(temp_graph, master = temp_frame)
@@ -171,5 +229,14 @@ def add_graphs(dados_clima, temp_frame, vento_frame):
         temp_canvas.draw()
         temp_canvas.get_tk_widget().grid(row=1,column=0, sticky="nsew")
         
-        
+    if hum_graph:
+        temp_canvas = FigureCanvasTkAgg(hum_graph, master = hum_frame)
+        temp_canvas.draw()
+        temp_canvas.get_tk_widget().grid(row=2,column=0, sticky="nsew")
 
+    if pressao_graph:
+        temp_canvas = FigureCanvasTkAgg(pressao_graph, master = pressao_frame)
+        temp_canvas.draw()
+        temp_canvas.get_tk_widget().grid(row=3,column=0, sticky="nsew")
+    
+ 

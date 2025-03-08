@@ -109,6 +109,9 @@ class App(tk.Tk):
         #Mostra a página especificada
         page = self.pages[page_name]
         page.tkraise()
+
+        if page_name == "relatorios" and hasattr(page,"load_data"):
+            page.load_data()
         
     """def open_popup(self):
         # Mostra o popup

@@ -7,7 +7,7 @@ try:
         port=3306,
         user='root',
         password='guilherme',
-        database='Drone_Data'
+        database='drone_project'
     )
     cursor = conexao.cursor()
     print("Connection successful")

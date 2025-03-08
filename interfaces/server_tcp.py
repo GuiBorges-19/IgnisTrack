@@ -27,7 +27,7 @@ class Server:
             humidade = dados["main"]["humidity"]
             pressao = dados["main"]["pressure"]
             vento = dados["wind"]["speed"]
-            return {"temperatura": temperatura, "humidade": humidade, "pressão": pressao, "vento": vento}
+            return {"temperatura": temperatura, "humidade": humidade, "pressao": pressao, "vento": vento}
         else:
             print("Erro a registar os dados climaticos: ", response.status_code)
             return {}
@@ -41,20 +41,20 @@ class Server:
     def handle_client(self, client_socket):
         #Processa os dados recebidos do "cliente"
         while True:
-            data = client_socket.recv(1024)
+            data = client_socket.recv(1024)#Lê até 1024 bytes de dados recebidos pelo socket
             if not data:
                 break
             try:
-                raw_data = data.decode().strip()
+                raw_data = data.decode().strip()#tranforma os dados de bytes para string e tira espaços em branco
                 print(f"Recebido {raw_data}")
                 
-                lat,log , alt = map(float,raw_data.split(","))
+                lat,log , alt = map(float,raw_data.split(","))#separa as coordenadas com virgulas e converte para float
                 print(f"Posição: Lat:{lat} Log:{log} Alt: {alt}")
                 #actual_label(lat, log, alt)
                 
                 dados_clima = self.get_weather(lat,log)
                 
-                if self.callback:
+                if self.callback:#atualiza na app
                     self.callback(lat,log,alt,dados_clima)
                      
             except ValueError:
