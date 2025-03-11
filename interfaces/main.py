@@ -3,16 +3,21 @@ from tkinter import ttk
 from tkintermapview import TkinterMapView
 import customtkinter
 from server_tcp import Server
+from relatorios import Relatorios
 import queue
-from status_frame import create_status_panel, create_drone_status, add_graphs
+import time
+import threading
+from status_frame import create_status_panel, create_drone_status, add_graphs, update_graph
 
 
 class Main_Page(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
+        self.relatorios = Relatorios(self, controller)
         self.parent = parent
         self.configure(bg="#D9D9D9")
+        self.op_fim = False
         
         # Configuração do layout principal
         self.rowconfigure(0, weight=1)
@@ -28,13 +33,11 @@ class Main_Page(tk.Frame):
         self.controller.after(100,self.check_queue)
         
         self.server = Server(callback=self.update_location)
-        
-        self.last_data = None
 
     def create_body(self):
         # Cria o corpo da página principal
         self.body_frame = ttk.Frame(self)
-        self.body_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        self.body_frame.grid(row=0 , column=0, sticky="nsew", padx=5, pady=5)
         
         self.body_frame.columnconfigure(0, weight=2)  # Coluna do mapa
         self.body_frame.columnconfigure(1, weight=1)  # Coluna do painel de status
@@ -45,7 +48,9 @@ class Main_Page(tk.Frame):
         self.map_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
             
         # frame de status_frame
-        self.status_frame,self.temp_frame, self.vento_frame, self.hum_frame, self.pressao_frame = create_status_panel(self.body_frame)
+        self.relatorios = Relatorios(self.body_frame, self)
+        self.status_frame,self.temp_frame, self.vento_frame, self.hum_frame, self.pressao_frame, operador_entry, area_entry = create_status_panel(self.body_frame, self.controller, self.relatorios.table)
+        
         self.status_frame.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
 
         # frame image_frame
@@ -97,29 +102,36 @@ class Main_Page(tk.Frame):
         self.drone_frame.grid_remove()   # Esconde o painel do drone
         frame.grid(row=0, column=1, sticky="nsew")  # Exibe o novo frame
     
+    
     def update_location(self, lat, log ,alt,dados_clima):
+        
+        global op_ativa
+        op_ativa = True
         
         print(f"DEBUG - Tipo de dados_clima: {type(dados_clima)}, Valor: {dados_clima}")  
         
+        if hasattr (self, 'op_fim') and self.op_fim:
+            pass
+        
         if not hasattr(self, 'map_frame'):
             return
+        
+        if not op_ativa:
+            return
+
         
         if not isinstance(dados_clima,dict):
             print("Erro: Esperado dicionario", type(dados_clima))
             return
         
         if dados_clima:
-            self.update_graph(dados_clima)
+            add_graphs(dados_clima, self.temp_frame, self.vento_frame, self.hum_frame, self.pressao_frame)
         
+        
+        if hasattr(self,'drone_marker') and self.drone_marker:
+            self.drone_marker.delete()
         self.drone_marker = self.map_frame.set_marker(lat,log,alt)
         
-        if self.drone_marker:
-            self.drone_marker.delete()
-        
-    def update_graph(self, dados_clima):
-        add_graphs(dados_clima,self.temp_frame,self.vento_frame,self.hum_frame,self.pressao_frame)
-
-    
     def check_queue(self):
         ##Função que verifica as coordenadas e atualiza a posiçao do drone
         try:
@@ -133,6 +145,8 @@ class Main_Page(tk.Frame):
         except queue.Empty:
             pass
         self.controller.after(100,self.check_queue)
+        
+    
 
 
     

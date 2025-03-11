@@ -1,12 +1,25 @@
 import tkinter as tk
 from tkinter import ttk
+from tkinter import messagebox
 import ttkbootstrap as tb
+import mysql.connector
+
 from ttkbootstrap.scrolled import ScrolledFrame
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import threading
+import time
+from relatorios import Relatorios
+from server_tcp import Server
+from datetime import datetime
 
-def create_status_panel(parent):
+
+server_instance = None
+
+
+op_ativa = True
+
+def create_status_panel( parent, controller, table):
     
     """#Container que ontem todos os frames do status_frames
     scroll_container = ScrolledFrame(parent, width=600, height=300)
@@ -41,6 +54,21 @@ def create_status_panel(parent):
     )
     drone_status_label.grid(row=2, column=0, columnspan=2, pady=15)
     
+    global server_instance
+    if server_instance is None:
+        server_instance = Server(callback= lambda lat, log, alt, dados_clima: status_frame.after(
+            0,lambda: add_graphs(dados_clima, temp_frame,vento_frame,hum_frame, pressao_frame)
+            )
+        )
+        server_instance.run()
+
+    
+    #botao terminar
+    terminar = tk.Button(status_frame,text="Terminar Operação", command= lambda: end_op(table,operador_entry,area_entry))
+
+
+    terminar.grid(row=3,column=0,pady=10)
+    
     #Frame do graficos das temperaturas
     temp_frame = ttk.Frame(status_frame)
     temp_frame.grid(row=4, column=0, columnspan=2, sticky="nsew",pady=10)
@@ -57,7 +85,10 @@ def create_status_panel(parent):
     pressao_frame = ttk.Frame(status_frame)
     pressao_frame.grid(row=7, column=0, columnspan=2, sticky="nsew",pady=10)
     
-    return status_frame, temp_frame,vento_frame,hum_frame,pressao_frame
+    
+    return status_frame, temp_frame,vento_frame,hum_frame,pressao_frame, operador_entry,area_entry
+
+
 
 def create_drone_status(parent):
     """Cria o painel de status do drone."""
@@ -91,13 +122,6 @@ def create_drone_status(parent):
 
     return frame_2, labels_local
 
-"""def actual_label( labels_local, lat, log, alt):
-   
-    labels_local["Latitude:"].config(text=f"Latitude: {lat}")
-    labels_local["Longitude:"].config(text=f"Longitude: {log}")
-    labels_local["Altitude:"].config(text=f"Altitude: {alt}")"""
-
-
 hist_temp = []
 hist_vento = []
 hist_humidade =  []
@@ -105,6 +129,7 @@ hist_pressao = []
 
 def grafico_temp():
     if not hist_temp:
+        print("Histórico de temperatura está vazio.")
         return None
     
     fig,ax = plt.subplots(figsize=(4,3))
@@ -119,6 +144,7 @@ def grafico_temp():
 
 def grafico_humidade():
     if not hist_humidade:
+        print("Histórico de temperatura está vazio.")
         return None
     
     fig,ax = plt.subplots(figsize=(4,3))
@@ -133,6 +159,7 @@ def grafico_humidade():
     
 def grafico_pressao():
     if not hist_pressao:
+        print("Histórico de temperatura está vazio.")
         return None
     
     fig,ax = plt.subplots(figsize=(4,3))
@@ -149,6 +176,7 @@ def grafico_pressao():
 
 def grafico_vento():
     if not hist_vento:
+        print("Histórico de temperatura está vazio.")
         return None
     
     fig,ax = plt.subplots(figsize=(4,3))
@@ -162,81 +190,149 @@ def grafico_vento():
     
     return fig
 
+last_up_vento = time.time()
+last_up_hum = time.time()
+last_up_pres = time.time()
+
 
 # Função para adicionar o gráfico dentro do frame no Tkinter
 def add_graphs(dados_clima, temp_frame, vento_frame, hum_frame, pressao_frame):
     
     global hist_temp,hist_vento, hist_humidade, hist_pressao #permite mudar a variavel global
+    global last_up_vento, last_up_hum, last_up_pres
+    
+    current_time = time.time()
     
     hist_temp.append(dados_clima["temperatura"])
     hist_vento.append(dados_clima["vento"])
     hist_humidade.append(dados_clima["humidade"])
     hist_pressao.append(dados_clima["pressao"])
-
     
-    if len(hist_temp) > 50:
-        hist_temp.pop(0)
-        
-    if len(hist_vento) > 50:
-        hist_vento.pop(0)
-        
-    if len(hist_humidade) > 50:
-        hist_humidade.pop(0)
-        
-    if len(hist_pressao) > 50:
-        hist_pressao.pop(0)
+    hist_temp = hist_temp[-50:]
+    hist_vento = hist_vento[-50:]
+    hist_humidade = hist_humidade[-50:]
+    hist_pressao = hist_pressao[-50:]
     
-    """if not hasattr(add_graphs,"temp_data"):
-        add_graphs.temp_data = []
-        add_graphs.vento_data = []"""
-        
-    """temp = grafico_temp()
-    vento = grafico_vento
-    
-    if temp is not None:
-        add_graphs.temp_data.append(temp)
-        
-    if vento is not None:
-        add_graphs.vento_data.append(vento)"""
-    
-    # Limpa os widgets existentes no frame antes de adicionar um novo gráfico
-
-    for widget in temp_frame.winfo_children():
-        widget.destroy()
-    
-    for widget in vento_frame.winfo_children():
-        widget.destroy()
-        
-    for widget in hum_frame.winfo_children():
-        widget.destroy()
-    
-    for widget in pressao_frame.winfo_children():
-        widget.destroy()
-        
     temp_graph = grafico_temp()
-    vento_graph = grafico_vento()
-    hum_graph = grafico_humidade()
-    pressao_graph = grafico_pressao()
-    
-    
     if temp_graph:
-        temp_canvas = FigureCanvasTkAgg(temp_graph, master = temp_frame)
-        temp_canvas.draw()
-        temp_canvas.get_tk_widget().grid(row=0,column=0, sticky="nsew")
-        
-    if vento_graph:
-        temp_canvas = FigureCanvasTkAgg(vento_graph, master = vento_frame)
-        temp_canvas.draw()
-        temp_canvas.get_tk_widget().grid(row=1,column=0, sticky="nsew")
-        
-    if hum_graph:
-        temp_canvas = FigureCanvasTkAgg(hum_graph, master = hum_frame)
-        temp_canvas.draw()
-        temp_canvas.get_tk_widget().grid(row=2,column=0, sticky="nsew")
-
-    if pressao_graph:
-        temp_canvas = FigureCanvasTkAgg(pressao_graph, master = pressao_frame)
-        temp_canvas.draw()
-        temp_canvas.get_tk_widget().grid(row=3,column=0, sticky="nsew")
+        update_graph(temp_graph,temp_frame)
     
- 
+    if current_time - last_up_vento >= 20:
+        last_up_vento = current_time
+        vento_graph = grafico_vento()
+        update_graph(vento_graph,vento_frame)
+            
+    if current_time - last_up_hum >=20:
+        last_up_hum = current_time
+        hum_graph = grafico_humidade()
+        update_graph(hum_graph,hum_frame)
+            
+    if current_time - last_up_pres >=20:
+        last_up_pres = current_time
+        pressao_graph = grafico_pressao()
+        update_graph(pressao_graph,pressao_frame)
+    
+
+def update_graph(graph, frame):
+    for widget in frame.winfo_children():
+        widget.destroy()
+        
+    canvas = FigureCanvasTkAgg(graph, master=frame)
+    canvas.draw()
+    widget_canvas = canvas.get_tk_widget() 
+    widget_canvas.grid(row=0, column=0, sticky="nsew")
+    
+def end_op(table, operador_entry,area_entry):
+
+        global server_instance
+    
+        op_nome =operador_entry.get()
+        area_nome = area_entry.get()
+        
+        global op_ativa
+        
+        if server_instance is None:
+            return
+            
+        if not op_nome or not area_nome:
+            messagebox.showerror("Por favor, insira o nome do operador e o nome da área.")
+            return
+        
+        if (server_instance.first_lat is None or server_instance.first_log is None or server_instance.first_alt is None):
+                messagebox.showerror("Erro", "coordendas nao inseridas")
+                return
+            
+        
+        try: 
+            server_instance.stop_server()
+            conexao = mysql.connector.connect(
+                    host='localhost',
+                    port=3306,
+                    user='root',
+                    password='guilherme',
+                    database='drone_project'
+    )
+            cursor = conexao.cursor(buffered=True)
+            coordenadas_id = None
+            
+            cursor.execute("select id from operador where nome = %s", (op_nome,))
+            resultado = cursor.fetchone()
+            
+            if resultado:
+                operador_id = resultado[0]
+            
+            else:
+                cursor.execute("insert into operador (nome) values (%s)", (op_nome,))
+                operador_id = cursor.lastrowid
+                
+            cursor.execute("select id from Areas where nome_area = %s", (area_nome,))
+            resultado = cursor.fetchone() 
+               
+            if resultado:
+                area_id = resultado[0]
+            else:
+                cursor.execute("Insert into Areas (nome_area) values (%s)", (area_nome,))
+                area_id = cursor.lastrowid
+                
+            cursor.execute("""Insert into CoordenadasOperacao(latitude,longitude,altitude)values(%s,%s,%s)""",
+            (server_instance.first_lat, server_instance.first_log, server_instance.first_alt))
+            coordenadas_id = cursor.lastrowid
+            
+            cursor.execute(
+                """insert into DataOperacao (operador_id, coordenadas_id, data) values (%s,%s,Now())""",(operador_id,coordenadas_id)
+            )
+            operacao_id = cursor.lastrowid
+            
+            cursor.execute("""insert into OperacaoArea (operacao_id, area_id) values (%s,%s)""", (operacao_id,area_id))
+
+            
+            table.insert(
+            "",  # Root
+            "end",  # Colocar no final
+            values = (op_nome, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), server_instance.first_lat, server_instance.first_log, area_nome)  # Dados das colunas
+        )
+            conexao.commit()
+            cursor.close()
+            conexao.close()
+        
+            op_ativa = False
+            server_instance = None
+            
+            
+            messagebox.showinfo("Sucesso", "Operação guardada e finalizada com Sucesso")
+            
+        
+        except mysql.connector.Error as err:
+            print(f"Erro: {err}")
+        
+        op_ativa = False
+      
+    
+
+    
+    
+    
+    
+    
+
+

@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 import mysql.connector
+import ttkbootstrap as tb
 from datetime import datetime
 
 class Relatorios(tk.Frame):
@@ -16,10 +17,10 @@ class Relatorios(tk.Frame):
         
         
         self.create_table()
-        
-        
+        self.load_data_bd()
+    
     def create_table(self):
-        style = ttk.Style()
+        style = tb.Style()
         style.configure("Treeview", font = ("Arial", 12), rowheight = 30,borderwidth = 1,relief = "solid")
         style.configure("Treeview.Heading", font=("Arial", 14, "bold"), background="#007ACC", foreground="white")
         style.map("Treeview", background=[("selected", "#347083")])  # Cor de seleção
@@ -56,18 +57,20 @@ class Relatorios(tk.Frame):
         self.table_frame.grid_columnconfigure(0,weight=1)
         self.table_frame.grid_rowconfigure(0,weight=1)
         
-    def load_data(self):
+        
+    def load_data_bd(self):
         try:
             conexao = mysql.connector.connect(
-                    host='localhost',
-                    port=3306,
-                    user='root',
-                    password='guilherme',
-                    database='drone_project'
-    )
+                host='localhost',
+                port=3306,
+                user='root',
+                password='guilherme',
+                database='drone_project'
+            )
             cursor = conexao.cursor()
-            
-            query = """select 
+
+            # Consulta para buscar os dados
+            query = """select DISTINCT
             Operador.nome as nome,
             DataOperacao.id as operacao_id,
             CoordenadasOperacao.latitude,
@@ -79,25 +82,30 @@ class Relatorios(tk.Frame):
             join Operador on DataOperacao.operador_id = Operador.id
             join CoordenadasOperacao on DataOperacao.coordenadas_id = CoordenadasOperacao.id
             join OperacaoArea on DataOperacao.id = OperacaoArea.operacao_id
-            join Areas on OperacaoArea.area_id = area_id;"""
+            join Areas on OperacaoArea.area_id = Areas.id;"""
+
             
             
             cursor.execute(query)
-            rows = cursor.fetchall()
+
+            resultado = cursor.fetchall()
             
-            
-            for row in rows:
-                print(row)
-                self.table.insert("","end",values=row)
+            for row in self.table.get_children():
+                self.table.delete(row)
                 
+            # Inserir os dados na tabela
+            for row in resultado:
+                self.table.insert("", "end", values=row)
+
             cursor.close()
             conexao.close()
-                
-        except mysql.connector.Error as e:
-            print(f"Erro ao conectar:{e}")
-        
 
-     
+        except mysql.connector.Error as err:
+            print(f"Erro: {err}")
         
-
-    
+        
+    def load_dados(self, op_nome, latitude, longitude,observacoes ):
+        self.table.insert("","end",op_nome, datetime.now(),latitude, longitude, observacoes)
+        
+  
+        

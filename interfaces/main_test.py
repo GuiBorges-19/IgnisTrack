@@ -9,6 +9,7 @@ from PIL import Image, ImageTk
 from server_tcp import Server
 from popup_op import Popup
 
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -36,7 +37,8 @@ class App(tk.Tk):
         self.show_page("main")
         
         self.server = Server(callback=self.update_drone_status)
-        threading.Thread(target=self.server.run, daemon=True).start()
+        #hreading.Thread(target=self.server.run, daemon=True).start()
+        self.server.run()
 
     def create_navigation(self):
         header_frame = tk.Frame(self, height=80)
@@ -69,7 +71,7 @@ class App(tk.Tk):
             icon = Image.open(icon_path)
             icon = icon.resize((20, 20), Image.Resampling.LANCZOS)  # Redimensionar
             icon = ImageTk.PhotoImage(icon)
-            
+        
             button = tk.Button(
                 nav_frame,
                 text=btn_text,
