@@ -49,7 +49,7 @@ class Server:
     def handle_client(self, client_socket):
         #Processa os dados recebidos do "cliente"
         while True:
-            data = client_socket.recv(1024)#Lê até 1024 bytes de dados recebidos pelo socket
+            data = client_socket.recv(1024)  # Lê até 1024 bytes de dados recebidos pelo socket
             if not data:
                 break
             
