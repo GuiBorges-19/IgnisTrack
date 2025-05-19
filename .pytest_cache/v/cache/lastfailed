@@ -1,0 +1,12 @@
+{
+  "tests/test_unitary.py::test_update_drone_status": true,
+  "tests/test_integration.py::test_servidor_api_clima": true,
+  "tests/test_integration.py::test_servidor_recebe_dados_drone": true,
+  "tests/test_integration.py::test_server_receives_drone_coordinates": true,
+  "tests/test_integration.py::test_server_drone_": true,
+  "tests/test_integration.py::test_server_drone_invalid_data": true,
+  "tests/test_integration.py::TestDatabaseIntegration::test_save_coordinates": true,
+  "tests/test_integration.py::TestApiIntegration::test_search_local": true,
+  "test_unitary.py": true,
+  "interfaces/tests/test_integration.py::test_server_api_integration": true
+}
